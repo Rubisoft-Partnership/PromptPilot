@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  cloud_sql_proxy:
+    image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:${CLOUD_SQL_PROXY_VERSION}
+    container_name: cloud_sql_proxy
+    command: >
+      --port=${CLOUD_SQL_PROXY_PORT} --address=${HOSTNAME} --credentials-file=${CLOUD_SQL_PROXY_CREDENTIALS} ${GCLOUD_CONNECTION_NAME}
+    ports:
+      - "${CLOUD_SQL_PROXY_PORT}:${CLOUD_SQL_PROXY_PORT}"
+    volumes:
+      - ${CLOUD_SQL_PROXY_CREDENTIALS_PATH}:${CLOUD_SQL_PROXY_CREDENTIALS_VOLUME}:ro
+    environment:
+      - RUN_AS_USER=0
+    env_file:
+      - .env
+    networks:
+      - langfuse-network
+
+  langfuse:
+    image: langfuse/langfuse:${LANGFUSE_IMAGE_VERSION}
+    container_name: langfuse
+    env_file:
+      - .env
+    ports:
+      - "${LANGFUSE_PORT}:${LANGFUSE_PORT}"
+    depends_on:
+      - cloud_sql_proxy
+    networks:
+      - langfuse-network
+
+networks:
+  langfuse-network:
+    driver: bridge

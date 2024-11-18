@@ -1,0 +1,3 @@
+cloud_sql_proxy/keys
+.env.*
+.DS_Store

@@ -1,0 +1,4 @@
+requests
+langfuse>=1.0.5
+openai
+ollama

@@ -28,6 +28,27 @@ services:
       - cloud_sql_proxy
     networks:
       - langfuse-network
+  
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./models:/root/.ollama
+    networks:
+      - langfuse-network
+
+  application:
+    build: ./app
+    container_name: application
+    env_file:
+      - .env
+    depends_on:
+      - langfuse
+      - ollama
+    networks:
+      - langfuse-network
 
 networks:
   langfuse-network:

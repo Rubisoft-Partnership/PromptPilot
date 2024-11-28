@@ -49,6 +49,8 @@ services:
       - ollama
     networks:
       - langfuse-network
+    ports:
+      - "5001:5001"
 
 networks:
   langfuse-network:

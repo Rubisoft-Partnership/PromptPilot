@@ -41,6 +41,16 @@ HOSTNAME=0.0.0.0
 LANGFUSE_CSP_ENFORCE_HTTPS=false
 LANGFUSE_IMAGE_VERSION=2
 
+# Ollama Configuration
+LLM_ENDPOINT=http://ollama:11434/v1
+OLLAMA_HOST=http://ollama:11434
+
+# LangFuse API Keys
+LANGFUSE_PUBLIC_KEY=pk-...
+LANGFUSE_SECRET_KEY=sk-...
+LANGFUSE_HOST=http://langfuse:${LANGFUSE_PORT}
+LANGFUSE_DEBUG=False
+
 Please replace the placeholders (e.g., your-google-cloud-project, your-db-user) with your actual configuration values.
 
 Step 2: Verify Your docker-compose.yml File

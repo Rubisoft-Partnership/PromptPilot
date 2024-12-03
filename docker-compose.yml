@@ -28,6 +28,16 @@ services:
       - cloud_sql_proxy
     networks:
       - langfuse-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"require('http').get('http://localhost:' + (process.env.LANGFUSE_PORT || 3000), res => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1));\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 2
+      start_period: 5s
   
   ollama:
     image: ollama/ollama:latest
@@ -40,13 +50,17 @@ services:
       - langfuse-network
 
   application:
-    build: ./app
+    build: 
+      context: .
+      dockerfile: app/Dockerfile
     container_name: application
     env_file:
       - .env
     depends_on:
-      - langfuse
-      - ollama
+      langfuse:
+        condition: service_healthy
+      ollama:
+        condition: service_started
     networks:
       - langfuse-network
     ports:

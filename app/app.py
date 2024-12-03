@@ -3,6 +3,7 @@ import os
 from langfuse.openai import OpenAI
 from langfuse import Langfuse
 import logging
+from promptpilot.versioning.tree import PromptTree  # Import PromptTree
 
 # Flask app instance
 app = Flask(__name__)
@@ -12,7 +13,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize the Langfuse client
-langfuse_client = Langfuse()
+langfuse_client = Langfuse(
+    public_key=os.environ.get('LANGFUSE_PUBLIC_KEY'),
+    secret_key=os.environ.get('LANGFUSE_SECRET_KEY'),
+    host=os.environ.get('LANGFUSE_HOST'),
+)
 
 # Initialize the OpenAI client from LangFuse
 client = OpenAI(
@@ -21,16 +26,29 @@ client = OpenAI(
 )
 
 model_name = "smollm2"
+prompt_name = "movie-critic"
+
+# Initialize the PromptTree with the Langfuse client
+prompt_manager = PromptTree(langfuse_client=langfuse_client)
+
+Langfuse.get_prompt
 
 @app.route("/", methods=["GET", "POST"])
 def chat():
     if request.method == "POST":
         user_input = request.form["message"]
         try:
+            # Get the latest system prompt using PromptTree
+            system_prompt = prompt_manager.get_latest_prompt_content(name=prompt_name)
+
+            # If no prompt is found, use a default
+            if not system_prompt:
+                system_prompt = "You are a helpful assistant."
+
             response = client.chat.completions.create(
                 model=model_name,
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_input},
                 ],
             )
@@ -52,6 +70,7 @@ def display_prompts():
     try:
         # Fetch prompts from Langfuse
         response = langfuse_client.client.prompts.list()
+        langfuse_client.get_prompt
         prompts = response.data
 
         # Prepare data to display

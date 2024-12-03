@@ -1,0 +1,21 @@
+# .dockerignore
+
+# Exclude the models directory to speed up builds
+models/
+
+# Exclude Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Exclude version control directories and files
+.git/
+.gitignore
+
+# Exclude environment variables files
+.env
+
+# Exclude documentation and other non-essential directories
+docs/
+tests/

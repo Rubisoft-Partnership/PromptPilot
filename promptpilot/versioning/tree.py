@@ -7,8 +7,7 @@ class PromptTree:
         self.file_path = file_path
         self.tree = self.load_tree()
         self.langfuse_client = langfuse_client
-        if langfuse_client:
-            self.sync_with_langfuse()
+        self.sync_with_langfuse()
 
     def load_tree(self):
         try:
@@ -42,6 +41,9 @@ class PromptTree:
         metadata["parent_id"] = parent_id  # Store tree relationship in metadata
         timestamp = datetime.now(timezone.utc).isoformat()
         metadata["created_at"] = timestamp
+        # Store content in metadata (optional)
+        if content is not None:
+            metadata["content"] = content
 
         # Push directly to Langfuse
         self.langfuse_client.create_prompt(
@@ -61,7 +63,7 @@ class PromptTree:
         )
 
         return prompt_info
-    
+
     def sync_with_langfuse(self):
         # Fetch all prompts from Langfuse
         response = self.langfuse_client.client.prompts.list()
@@ -82,15 +84,35 @@ class PromptTree:
                 # Create a unique ID for the prompt version
                 prompt_id = f"{prompt_name}_v{version}"
 
-                # Since content is not retrieved, set it to None or omit it
+                # Fetch the prompt content using get_prompt
+                try:
+                    prompt_client = self.langfuse_client.get_prompt(
+                        name=prompt_name,
+                        version=version,
+                        type="text",  # or "chat" if your prompts are chat-based
+                        cache_ttl_seconds=0,  # Disable caching to get the latest
+                        max_retries=2,
+                        fetch_timeout_seconds=10,
+                    )
+                    content = prompt_client.prompt  # The prompt content
+                except Exception as e:
+                    print(f"Error fetching prompt '{prompt_name}' version {version}: {e}")
+                    content = None  # Handle the error as needed
+
+                # Get metadata from the prompt's last_config
+                config = p.last_config or {}
+                metadata = config.copy()
+                metadata["content"] = content  # Update metadata with content
+
                 prompt_info = {
                     "id": prompt_id,
                     "name": prompt_name,
                     "version": version,
-                    "metadata": p.last_config or {},
-                    "parent_id": (p.last_config or {}).get('parent_id'),
+                    "metadata": metadata,
+                    "parent_id": config.get('parent_id'),
                     "children": [],
                     "created_at": p.last_updated_at.isoformat() if p.last_updated_at else '',
+                    "content": content,  # Store the content
                 }
 
                 # Append the prompt version to the list
@@ -119,3 +141,14 @@ class PromptTree:
         # Get the list of versions for the prompt name
         versions = [p['version'] for p in self.tree['prompts'].get(name, [])]
         return max(versions, default=0) + 1
+
+    def get_latest_prompt_content(self, name):
+        # Retrieve the content of the latest version of the prompt
+        if name in self.tree['prompts']:
+            prompts = self.tree['prompts'][name]
+            # Sort prompts by version descending
+            sorted_prompts = sorted(prompts, key=lambda x: x['version'], reverse=True)
+            latest_prompt = sorted_prompts[0]
+            return latest_prompt.get('content')
+        else:
+            return None

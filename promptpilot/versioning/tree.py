@@ -1,6 +1,10 @@
 from datetime import datetime, timezone
 import json
+from langfuse.model import TextPromptClient, ChatPromptClient
+from langfuse.api.resources.prompts.types import Prompt_Text, Prompt_Chat
+import logging
 
+logger = logging.getLogger(__name__)
 
 class PromptTree:
     def __init__(self, langfuse_client, file_path='prompt_history.json'):
@@ -89,18 +93,24 @@ class PromptTree:
                     prompt_client = self.langfuse_client.get_prompt(
                         name=prompt_name,
                         version=version,
-                        type="text",  # or "chat" if your prompts are chat-based
                         cache_ttl_seconds=0,  # Disable caching to get the latest
                         max_retries=2,
                         fetch_timeout_seconds=10,
                     )
                     content = prompt_client.prompt  # The prompt content
+                    prompt_type = 'chat' if isinstance(prompt_client, ChatPromptClient) else 'text'
+                    config = prompt_client.config
+                    labels = prompt_client.labels
+                    tags = prompt_client.tags
                 except Exception as e:
-                    print(f"Error fetching prompt '{prompt_name}' version {version}: {e}")
+                    logger.error(f"Error fetching prompt '{prompt_name}' version {version}: {e}")
                     content = None  # Handle the error as needed
+                    prompt_type = None
+                    config = {}
+                    labels = []
+                    tags = []
 
                 # Get metadata from the prompt's last_config
-                config = p.last_config or {}
                 metadata = config.copy()
                 metadata["content"] = content  # Update metadata with content
 
@@ -109,10 +119,14 @@ class PromptTree:
                     "name": prompt_name,
                     "version": version,
                     "metadata": metadata,
-                    "parent_id": config.get('parent_id'),
+                    "parent_id": metadata.get('parent_id'),
                     "children": [],
                     "created_at": p.last_updated_at.isoformat() if p.last_updated_at else '',
                     "content": content,  # Store the content
+                    "type": prompt_type,
+                    "config": config,
+                    "labels": labels,
+                    "tags": tags,
                 }
 
                 # Append the prompt version to the list
@@ -142,13 +156,49 @@ class PromptTree:
         versions = [p['version'] for p in self.tree['prompts'].get(name, [])]
         return max(versions, default=0) + 1
 
-    def get_latest_prompt_content(self, name):
-        # Retrieve the content of the latest version of the prompt
+    def get_latest_prompt(self, name):
+        # Retrieve the latest prompt version for the given name
         if name in self.tree['prompts']:
             prompts = self.tree['prompts'][name]
             # Sort prompts by version descending
             sorted_prompts = sorted(prompts, key=lambda x: x['version'], reverse=True)
-            latest_prompt = sorted_prompts[0]
-            return latest_prompt.get('content')
+            latest_prompt_data = sorted_prompts[0]
+
+            # Now, create a PromptClient object
+            prompt_type = latest_prompt_data.get('type', 'text')
+            prompt_content = latest_prompt_data.get('content')
+            prompt_name = latest_prompt_data.get('name')
+            prompt_version = latest_prompt_data.get('version')
+            prompt_config = latest_prompt_data.get('config', {})
+            prompt_labels = latest_prompt_data.get('labels', [])
+            prompt_tags = latest_prompt_data.get('tags', [])
+
+            # Construct the appropriate Prompt object
+            if prompt_type == 'text':
+                prompt = Prompt_Text(
+                    name=prompt_name,
+                    version=prompt_version,
+                    prompt=prompt_content,
+                    config=prompt_config,
+                    labels=prompt_labels,
+                    tags=prompt_tags,
+                )
+                prompt_client = TextPromptClient(prompt=prompt)
+            elif prompt_type == 'chat':
+                prompt = Prompt_Chat(
+                    name=prompt_name,
+                    version=prompt_version,
+                    prompt=prompt_content,  # Should be a list of ChatMessageDict
+                    config=prompt_config,
+                    labels=prompt_labels,
+                    tags=prompt_tags,
+                )
+                prompt_client = ChatPromptClient(prompt=prompt)
+            else:
+                # Unknown type, return None or raise an error
+                logger.error(f"Unknown prompt type '{prompt_type}' for prompt '{prompt_name}'")
+                return None
+
+            return prompt_client
         else:
             return None

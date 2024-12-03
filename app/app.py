@@ -39,12 +39,14 @@ def chat():
         user_input = request.form["message"]
         try:
             # Get the latest system prompt using PromptTree
-            system_prompt = prompt_manager.get_latest_prompt_content(name=prompt_name)
+            system_prompt = prompt_manager.get_latest_prompt(name=prompt_name)
 
             # If no prompt is found, use a default
-            if not system_prompt:
+            if system_prompt:
+                system_prompt = system_prompt.compile(criticLevel="expert", movie="Inception")
+            else:
                 system_prompt = "You are a helpful assistant."
-
+            
             response = client.chat.completions.create(
                 model=model_name,
                 messages=[

@@ -8,7 +8,7 @@ setup(
         # List your package dependencies here
         # For example:
         # 'flask',
-        # 'langfuse',
+        'langfuse',
     ],
     author='Federico Rubbi',
     description='A package for prompt optimization',

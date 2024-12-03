@@ -1,6 +1,7 @@
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, jsonify
 import os
 from langfuse.openai import OpenAI
+from langfuse import Langfuse
 import logging
 
 # Flask app instance
@@ -9,6 +10,9 @@ app = Flask(__name__)
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Initialize the Langfuse client
+langfuse_client = Langfuse()
 
 # Initialize the OpenAI client from LangFuse
 client = OpenAI(
@@ -41,6 +45,44 @@ def chat():
                 500,
             )
     return render_template("chat.html")
+
+
+@app.route("/prompts", methods=["GET"])
+def display_prompts():
+    try:
+        # Fetch prompts from Langfuse
+        response = langfuse_client.client.prompts.list()
+        prompts = response.data
+
+        # Prepare data to display
+        prompts_list = []
+        for prompt_meta in prompts:
+            # Get the latest version
+            latest_version = max(prompt_meta.versions) if prompt_meta.versions else None
+
+            # Get the last updated time
+            last_updated = prompt_meta.last_updated_at.isoformat() if prompt_meta.last_updated_at else ''
+
+            prompt_info = {
+                "name": prompt_meta.name,
+                "versions": prompt_meta.versions,
+                "latest_version": latest_version,
+                "labels": prompt_meta.labels,
+                "tags": prompt_meta.tags,
+                "last_updated_at": last_updated,
+                "last_config": prompt_meta.last_config,
+            }
+            prompts_list.append(prompt_info)
+
+        # Return the prompts as JSON
+        return jsonify(prompts_list)
+
+    except Exception as e:
+        logger.error(f"Error fetching prompts: {e}", exc_info=True)
+        return (
+            "An error occurred while fetching prompts. Please try again later.",
+            500,
+        )
 
 
 if __name__ == "__main__":

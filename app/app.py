@@ -31,48 +31,51 @@ prompt_name = "movie-critic"
 # Initialize the PromptTree with the Langfuse client
 prompt_manager = PromptTree(langfuse_client=langfuse_client)
 
-Langfuse.get_prompt
+# Remove unused Langfuse.get_prompt if not needed
 
-@app.route("/", methods=["GET", "POST"])
-def chat():
-    if request.method == "POST":
-        user_input = request.form["message"]
-        try:
-            # Get the latest system prompt using PromptTree
-            system_prompt = prompt_manager.get_latest_prompt(name=prompt_name)
-
-            # If no prompt is found, use a default
-            if system_prompt:
-                system_prompt = system_prompt.compile(criticLevel="expert", movie="Inception")
-            else:
-                system_prompt = "You are a helpful assistant."
-            
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_input},
-                ],
-            )
-            response_text = response.choices[0].message.content
-            logger.info(f"User input: {user_input}")
-            logger.info(f"Assistant response: {response_text}")
-            return render_template("chat.html", user_input=user_input, response_text=response_text)
-        except Exception as e:
-            logger.error(f"Error during chat completion: {e}", exc_info=True)
-            return (
-                "Unexpected error occurred. Please check your request and contact support: https://langfuse.com/support.",
-                500,
-            )
+@app.route("/", methods=["GET"])
+def index():
     return render_template("chat.html")
 
+@app.route("/message", methods=["POST"])
+def message():
+    user_input = request.json.get("message")
+    if not user_input:
+        return jsonify({"error": "No message provided."}), 400
+
+    try:
+        # Get the latest system prompt using PromptTree
+        system_prompt = prompt_manager.get_latest_prompt(name=prompt_name)
+
+        # If no prompt is found, use a default
+        if system_prompt:
+            system_prompt = system_prompt.compile(criticLevel="expert", movie="Inception")
+        else:
+            system_prompt = "You are a helpful assistant."
+
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_input},
+            ],
+        )
+        response_text = response.choices[0].message.content
+        logger.info(f"User input: {user_input}")
+        logger.info(f"Assistant response: {response_text}")
+
+        return jsonify({"response": response_text})
+    except Exception as e:
+        logger.error(f"Error during chat completion: {e}", exc_info=True)
+        return jsonify({
+            "error": "Unexpected error occurred. Please check your request and contact support: https://langfuse.com/support."
+        }), 500
 
 @app.route("/prompts", methods=["GET"])
 def display_prompts():
     try:
         # Fetch prompts from Langfuse
         response = langfuse_client.client.prompts.list()
-        langfuse_client.get_prompt
         prompts = response.data
 
         # Prepare data to display
@@ -105,6 +108,5 @@ def display_prompts():
             500,
         )
 
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001)
+    app.run(host="0.0.0.0", port=5001, debug=True)

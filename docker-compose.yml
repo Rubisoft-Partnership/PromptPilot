@@ -49,6 +49,22 @@ services:
     networks:
       - langfuse-network
 
+  open_webui:
+    image: ghcr.io/open-webui/open-webui:ollama
+    container_name: open_webui
+    ports:
+      - "3001:8080"
+    volumes:
+      - open-webui-data:/app/backend/data
+      - ./models:/root/.ollama  # Ensure access to Ollama models
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434  # Connect to the Ollama service within the network
+    depends_on:
+      - ollama
+    networks:
+      - langfuse-network
+    restart: always
+
   application:
     build: 
       context: .
@@ -66,6 +82,26 @@ services:
     ports:
       - "5001:5001"
 
+  evaluator:
+    build:
+      context: ./evaluator
+      dockerfile: Dockerfile
+    container_name: evaluator
+    env_file:
+      - .env
+    depends_on:
+      langfuse:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    networks:
+      - langfuse-network
+    restart: unless-stopped
+
 networks:
   langfuse-network:
     driver: bridge
+
+volumes:
+  open-webui-data:
+    driver: local

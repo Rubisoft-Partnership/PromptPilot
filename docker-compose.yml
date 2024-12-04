@@ -97,6 +97,8 @@ services:
     networks:
       - langfuse-network
     restart: unless-stopped
+    ports:
+      - "5002:5002"
 
 networks:
   langfuse-network:

@@ -55,7 +55,7 @@ def index():
         from_timestamp = now - timedelta(hours=1)
         
         traces = get_traces(
-            tags="ext_eval_pipelines",
+            tags=None,
             limit=TOTAL_TRACES,
             from_timestamp=from_timestamp,
             to_timestamp=to_timestamp
@@ -111,7 +111,6 @@ def tone_score(trace):
     return response.choices[0].message.content.strip()
 
 def joyfulness_score(trace):
-    # Replace with actual Deepeval logic
     score = 0.8  # Example numeric score
     reason = "Engaging and fun."
     return {"score": score, "reason": reason}
@@ -170,7 +169,7 @@ def background_evaluation_loop():
         except Exception as e:
             logger.error(f"Unexpected error in evaluation loop: {e}")
         
-        time.sleep(600)  # Run every 10 minutes
+        time.sleep(600)
 
 def run_flask_app():
     """

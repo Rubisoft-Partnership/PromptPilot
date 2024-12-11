@@ -2,6 +2,7 @@ from flask import Flask, request, render_template, jsonify
 import os
 from langfuse.openai import OpenAI
 from langfuse import Langfuse
+from langfuse.decorators import langfuse_context, observe
 import logging
 from promptpilot.versioning.tree import PromptTree  # Import PromptTree
 
@@ -31,12 +32,11 @@ prompt_name = "movie-critic"
 # Initialize the PromptTree with the Langfuse client
 prompt_manager = PromptTree(langfuse_client=langfuse_client)
 
-# Remove unused Langfuse.get_prompt if not needed
-
 @app.route("/", methods=["GET"])
 def index():
     return render_template("chat.html")
 
+@observe(as_type="generation")
 @app.route("/message", methods=["POST"])
 def message():
     user_input = request.json.get("message")
@@ -45,11 +45,11 @@ def message():
 
     try:
         # Get the latest system prompt using PromptTree
-        system_prompt = prompt_manager.get_latest_prompt(name=prompt_name)
+        prompt = prompt_manager.get_latest_prompt(name=prompt_name)
 
         # If no prompt is found, use a default
-        if system_prompt:
-            system_prompt = system_prompt.compile(criticLevel="expert", movie="Inception")
+        if prompt:
+            system_prompt = prompt.compile(criticLevel="expert", movie="Inception")
         else:
             system_prompt = "You are a helpful assistant."
 
@@ -59,6 +59,7 @@ def message():
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_input},
             ],
+            metadata={"prompt_name": prompt_name},
         )
         response_text = response.choices[0].message.content
         logger.info(f"User input: {user_input}")

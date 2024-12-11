@@ -5,3 +5,7 @@ models
 .pyc
 .pytest_cache
 __pycache__
+.json
+.jsonl
+.log
+.key
